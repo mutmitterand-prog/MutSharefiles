@@ -1,0 +1,40 @@
+{
+  "name": "transfert-desktop",
+  "productName": "TRANSFERT",
+  "version": "1.0.0",
+  "description": "TRANSFERT : transfert de fichiers entre votre PC Windows et vos téléphones",
+  "author": "TRANSFERT",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "prepare-payload": "node scripts/prepare.mjs",
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --x64 --publish never"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.transfert.desktop",
+    "productName": "TRANSFERT",
+    "asar": false,
+    "directories": { "output": "dist-installer", "buildResources": "build" },
+    "files": ["main.cjs", "package.json", "server/**", "dist/**", "build/icon.png"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TRANSFERT",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "TRANSFERT-Setup-${version}.exe"
+    }
+  }
+}
