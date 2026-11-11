@@ -1,0 +1,19 @@
+{
+  "name": "transfert-desktop-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Serveur local Windows de l'application TRANSFERT",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/paths.test.js test/services.test.js test/transfers.test.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "qrcode": "^1.5.4"
+  }
+}
