@@ -1,24 +1,23 @@
-# Compiler l'APK Android avec GitHub Actions
+# Compiler les versions Android et Windows de TRANSFERT
 
-## Déclencher la compilation
+## APK Android
 
-1. Envoyez **tout le contenu** du dossier du projet sur GitHub, y compris le dossier caché `.github/workflows/`.
-2. Dans le dépôt GitHub, ouvrez l'onglet **Actions**.
-3. Choisissez **Compiler APK Android TRANSFERT** dans la colonne de gauche.
-4. Appuyez sur **Run workflow**, sélectionnez `main`, puis confirmez.
-5. Ouvrez l'exécution. Si elle réussit (pastille verte), descendez jusqu'à **Artifacts**.
-6. Téléchargez `TRANSFERT-Android-1.0.12-APK`, décompressez le ZIP et récupérez `app-debug.apk`.
+1. Ouvrez GitHub > Actions.
+2. Choisissez **Compiler APK Android TRANSFERT**.
+3. Cliquez sur **Run workflow** sur la branche `main`.
+4. Après réussite, téléchargez l'artefact `TRANSFERT-Android-1.0.12-APK`.
+5. Décompressez-le pour récupérer `app-debug.apk`.
 
-Une compilation se déclenche aussi automatiquement après un push qui modifie `mobile/` ou le workflow sur `main` ou `master`.
+## Installateur Windows EXE
 
-## Installer sur Android
+1. Ouvrez GitHub > Actions.
+2. Choisissez **Compiler EXE Windows TRANSFERT**.
+3. Cliquez sur **Run workflow** sur la branche `main`.
+4. Après réussite, téléchargez l'artefact `TRANSFERT-Windows-1.0.12-EXE`.
+5. Décompressez-le pour récupérer `TRANSFERT-Setup-1.0.12.exe`.
 
-Copiez `app-debug.apk` sur le téléphone et ouvrez-le. Autorisez l'installation depuis cette source si Android le demande. Cette APK est une version de test/debug, pas une version Play Store signée.
-
-## En cas d'échec
-
-Ouvrez l'exécution rouge dans Actions, développez l'étape en erreur et copiez le journal complet de cette étape. Ne modifiez pas au hasard les paramètres du dépôt : le journal indiquera la cause précise.
+Les deux compilations sont indépendantes : l'APK est construit sur Ubuntu et l'EXE sur Windows. Il faut lancer chaque workflow séparément si vous souhaitez les deux fichiers.
 
 ## Limites de validation
 
-La compilation GitHub vérifie que le projet Android peut être généré et compilé. Elle ne remplace pas un essai réel avec une clé FAT32 et un disque NTFS sur le téléphone. La lecture NTFS dépend notamment de la prise en charge du volume par Android et le fabricant du téléphone.
+La réussite d'une compilation confirme la génération du paquet, mais ne remplace pas les essais sur un téléphone avec une clé FAT32 ou un disque NTFS, ni les essais d'installation et d'utilisation sur Windows.
