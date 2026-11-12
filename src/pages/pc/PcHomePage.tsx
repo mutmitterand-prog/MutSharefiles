@@ -53,20 +53,20 @@ export default function PcHomePage({ onNavigate }: Props) {
                   Le téléphone doit être sur le même Wi-Fi. Le code expire après 5 minutes.
                 </p>
               </div>
-              <dl className="grid grid-cols-2 gap-4 text-sm">
-                <div>
+              <dl className="flex flex-wrap gap-x-8 gap-y-4 text-sm">
+                <div className="min-w-0">
                   <dt className="text-slate-500 dark:text-slate-400">Adresse IP locale</dt>
-                  <dd className="mt-1 font-mono font-medium">{primaryIp}</dd>
+                  <dd className="mt-1 break-all font-mono font-medium">{primaryIp}</dd>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <dt className="text-slate-500 dark:text-slate-400">Port du serveur</dt>
                   <dd className="mt-1 font-mono font-medium">{data.port}</dd>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <dt className="text-slate-500 dark:text-slate-400">Serveur</dt>
                   <dd className="mt-1"><Badge tone="success">En marche</Badge></dd>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <dt className="text-slate-500 dark:text-slate-400">Appareils associés</dt>
                   <dd className="mt-1 font-medium">{data.devicesCount}</dd>
                 </div>

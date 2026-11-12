@@ -92,7 +92,7 @@
     say('Connexion au PC…', true);
     var found = await findPc(origin);
     if (!found) {
-      say('PC introuvable. Vérifiez qu\'il est allumé, que TRANSFERT est lancé et que le téléphone est sur le même Wi-Fi.');
+      say('PC introuvable (' + origin + '). Vérifiez qu\'il est allumé, que TRANSFERT est lancé, que le téléphone est sur le même Wi-Fi et que le pare-feu Windows autorise TRANSFERT (scripts\\autoriser-pare-feu-windows.bat).');
       return;
     }
     origin = found.origin;
