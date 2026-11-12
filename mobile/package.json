@@ -1,0 +1,12 @@
+{
+  "name": "transfert-mobile",
+  "version": "1.0.12",
+  "private": true,
+  "description": "Application Android TRANSFERT avec navigation USB OTG via Android SAF",
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "jsqr": "^1.4.0"
+  }
+}
