@@ -202,8 +202,14 @@ test('PC vers téléphone : fichier en attente puis téléchargement vérifiable
   assert.equal(sha(buf), sha(data));
   assert.equal(file.headers.get('x-content-sha256'), sha(data));
 
-  const history = await call('GET', '/api/device/history', { token });
-  assert.ok(history.json.items.some((entry) => entry.direction === 'pc_to_android' && entry.status === 'completed'));
+  // L'historique est enregistré juste après la fin de la réponse : on laisse jusqu'à 3 s au serveur.
+  let recorded = false;
+  for (let attempt = 0; attempt < 30 && !recorded; attempt += 1) {
+    const history = await call('GET', '/api/device/history', { token });
+    recorded = history.json.items.some((entry) => entry.direction === 'pc_to_android' && entry.status === 'completed');
+    if (!recorded) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.ok(recorded, 'téléchargement absent de l\'historique');
 });
 
 test('téléchargement d\'un fichier partagé et déconnexion de l\'appareil', async () => {

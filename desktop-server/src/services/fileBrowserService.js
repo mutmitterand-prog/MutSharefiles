@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { ApiError } from '../security/ApiError.js';
-import { resolveExistingInside } from '../security/paths.js';
+import { normalizeRelativePath, resolveExistingInside } from '../security/paths.js';
 import { findSharedFolder } from './settingsService.js';
 
 const MAX_ENTRIES = 2000;
@@ -13,6 +13,7 @@ export function toPosixRelative(root, target) {
 export async function listFolder(rootId, relativePath = '') {
   const folder = await findSharedFolder(rootId);
   const dirPath = await resolveExistingInside(folder.path, relativePath);
+  const currentRelative = normalizeRelativePath(relativePath);
   let stats;
   try {
     stats = await fs.lstat(dirPath);
@@ -35,7 +36,7 @@ export async function listFolder(rootId, relativePath = '') {
       type: isFolder ? 'folder' : 'file',
       size: isFolder ? null : entryStats.size,
       modifiedAt: entryStats.mtime.toISOString(),
-      path: toPosixRelative(folder.path, path.join(dirPath, entry.name)),
+      path: currentRelative ? `${currentRelative}/${entry.name}` : entry.name,
     });
   }
   entries.sort((a, b) => {
@@ -45,7 +46,7 @@ export async function listFolder(rootId, relativePath = '') {
 
   return {
     root: { id: folder.id, label: folder.label },
-    path: toPosixRelative(folder.path, dirPath),
+    path: currentRelative,
     truncated: dirents.length > MAX_ENTRIES,
     entries,
   };

@@ -4,13 +4,12 @@ import { DATA_DIR, MAX_CHUNK_BYTES, STALE_UPLOAD_MAX_AGE_MS } from '../config.js
 import { logger } from '../logger.js';
 import { readJson, renameWithRetry, serialize, writeJsonAtomic } from './jsonStore.js';
 import { ApiError } from '../security/ApiError.js';
-import { resolveInside, ensureDirectoryInside, sanitizeFileName } from '../security/paths.js';
+import { resolveInside, ensureDirectoryInside, sanitizeFileName, normalizeRelativePath } from '../security/paths.js';
 import { generateId } from '../security/tokens.js';
 import { hashFile } from '../security/hash.js';
 import { findSharedFolder } from './settingsService.js';
 import { recordTransfer } from './historyService.js';
 import { OUTBOX_DIR, outboxPaths } from './outboxService.js';
-import { toPosixRelative } from './fileBrowserService.js';
 
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
@@ -123,7 +122,7 @@ export async function createUpload({ actor, kind, name, size, sha256, rootId, fo
     const shared = await findSharedFolder(rootId);
     const dir = await ensureDirectoryInside(shared.path, folder ?? '');
     meta.rootId = rootId;
-    meta.folder = toPosixRelative(shared.path, dir);
+    meta.folder = normalizeRelativePath(folder);
     if (policy === 'ask' && (await exists(path.join(dir, safeName)))) {
       throw new ApiError(409, 'DUPLICATE', 'Un fichier portant ce nom existe déjà à cet emplacement.', {
         fileName: safeName,

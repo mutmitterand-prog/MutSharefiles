@@ -45,6 +45,19 @@ export function resolveInside(root, relativePath = '') {
   return target;
 }
 
+/**
+ * Chemin relatif normalisé (séparateur « / ») calculé uniquement à partir du texte demandé.
+ * N'utilise jamais path.relative() entre deux chemins système : sous Windows, un même dossier peut
+ * s'écrire de plusieurs façons (nom court RUNNER~1, jonction, lien) et produirait des « .. ».
+ * À appeler après resolveInside()/resolveExistingInside(), qui valident le chemin.
+ */
+export function normalizeRelativePath(relativePath = '') {
+  return String(relativePath ?? '')
+    .split(/[\\/]+/)
+    .filter(Boolean)
+    .join('/');
+}
+
 function isInside(root, target) {
   return target === root || target.startsWith(root + path.sep);
 }

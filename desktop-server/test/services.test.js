@@ -397,3 +397,40 @@ test('journal : une URL de téléchargement ne casse jamais la ligne JSON (régr
   assert.ok(!JSON.stringify(parsed[1]).includes('SECRET'));
   assert.ok(parsed[1].stack.includes('C:\\Users'));
 });
+
+// ---------------------------------------------------------------- Régression Windows : dossier partagé accessible par un lien
+
+test('dossier partagé accessible par un lien ou un nom court : envoi dans un sous-dossier et liste corrects', async (t) => {
+  const { listFolder } = await import('../src/services/fileBrowserService.js');
+  const real = path.join(dataDir, 'vrai-partage');
+  const link = path.join(dataDir, 'lien-vers-partage');
+  await fs.mkdir(real, { recursive: true });
+  try {
+    await fs.symlink(real, link, 'junction');
+  } catch (error) {
+    t.skip(`Lien impossible sur cette plateforme (${error.code})`);
+    return;
+  }
+  const settingsFile = path.join(dataDir, 'settings.json');
+  const original = await fs.readFile(settingsFile, 'utf8');
+  const config = JSON.parse(original);
+  config.sharedFolders.push({ id: 'lien', label: 'Lien', path: link });
+  await fs.writeFile(settingsFile, JSON.stringify(config));
+  try {
+    const actor = { id: '8'.repeat(32), name: 'N' };
+    const data = Buffer.from('contenu');
+    const session = await uploads.createUpload({ actor, kind: 'folder', name: 'a.txt', size: data.length, sha256: sha(data), rootId: 'lien', folder: 'Sous/Dossier', policy: 'rename' });
+    await uploads.appendChunk(session.id, actor, 0, (async function* () { yield data; })());
+    const done = await uploads.completeUpload(session.id, actor);
+    assert.equal(done.fileName, 'a.txt');
+    assert.equal(await fs.readFile(path.join(real, 'Sous', 'Dossier', 'a.txt'), 'utf8'), 'contenu');
+    const root = await listFolder('lien', '');
+    assert.deepEqual(root.entries.map((e) => e.path), ['Sous']);
+    assert.equal(root.path, '');
+    const sub = await listFolder('lien', 'Sous/Dossier');
+    assert.equal(sub.path, 'Sous/Dossier');
+    assert.deepEqual(sub.entries.map((e) => e.path), ['Sous/Dossier/a.txt']);
+  } finally {
+    await fs.writeFile(settingsFile, original);
+  }
+});
