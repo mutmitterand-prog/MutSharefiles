@@ -36,7 +36,19 @@
     return { origin: origin, pair: pair, url: origin + '/' + (pair ? '?pair=' + encodeURIComponent(pair) : '') };
   }
 
-  var api = { parseServerAddress: parseServerAddress, isPrivateHost: isPrivateHost };
+  /**
+   * Adresses à essayer pour un PC : si l'adresse utilise le port par défaut, TRANSFERT a pu prendre
+   * un port voisin (8788, 8789...) parce qu'une autre application occupe déjà 8787.
+   */
+  function candidateOrigins(origin) {
+    var m = /^(https?:\/\/[^/:]+):(\d+)$/.exec(origin);
+    if (!m || m[2] !== DEFAULT_PORT) return [origin];
+    var list = [origin];
+    for (var i = 1; i <= 20; i++) list.push(m[1] + ':' + (Number(DEFAULT_PORT) + i));
+    return list;
+  }
+
+  var api = { parseServerAddress: parseServerAddress, isPrivateHost: isPrivateHost, candidateOrigins: candidateOrigins };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PcAddress = api;
 })(typeof window !== 'undefined' ? window : globalThis);

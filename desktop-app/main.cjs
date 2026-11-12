@@ -2,11 +2,17 @@
 // affiche l'interface dans une fenêtre et ajoute une icône dans la zone de notification.
 const { app, BrowserWindow, Menu, Tray, dialog, nativeImage, shell } = require('electron');
 const { spawn } = require('node:child_process');
+const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 
-const PORT = Number(process.env.TRANSFERT_PORT) || 8787;
-const URL_LOCAL = `http://localhost:${PORT}`;
+// Port préféré : 8787. S'il est occupé par une autre application, le serveur en choisit un autre
+// tout seul et l'écrit dans server.port ; `port` est alors mis à jour (voir startServer).
+const DEFAULT_PORT = Number(process.env.TRANSFERT_PORT) || 8787;
+let port = DEFAULT_PORT;
+const urlLocal = () => `http://localhost:${port}`;
+const dataDir = () => path.join(app.getPath('userData'), 'data');
+const portFile = () => path.join(dataDir(), 'server.port');
 const ICON = path.join(__dirname, 'build', 'icon.png');
 
 let serverProcess = null;
@@ -15,24 +21,60 @@ let mainWindow = null;
 let tray = null;
 let quitting = false;
 
-function request(method, urlPath, timeoutMs = 1500) {
+function request(method, urlPath, timeoutMs = 1500, targetPort = port) {
   return new Promise((resolve) => {
-    const req = http.request({ host: '127.0.0.1', port: PORT, path: urlPath, method, timeout: timeoutMs }, (res) => {
-      res.resume();
-      resolve(res.statusCode);
+    const req = http.request({ host: '127.0.0.1', port: targetPort, path: urlPath, method, timeout: timeoutMs }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { if (body.length < 4096) body += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, body }));
     });
-    req.on('timeout', () => { req.destroy(); resolve(0); });
-    req.on('error', () => resolve(0));
+    req.on('timeout', () => { req.destroy(); resolve({ status: 0, body: '' }); });
+    req.on('error', () => resolve({ status: 0, body: '' }));
     req.end();
   });
 }
 
-const serverIsUp = async () => (await request('GET', '/api/info')) === 200;
+// Vérifie qu'il s'agit bien d'un serveur TRANSFERT : une autre application peut répondre sur le même port.
+async function isTransfert(targetPort) {
+  const { status, body } = await request('GET', '/api/info', 1500, targetPort);
+  if (status !== 200) return false;
+  try {
+    return JSON.parse(body).appName === 'TRANSFERT';
+  } catch {
+    return false;
+  }
+}
 
+function readPortFile() {
+  try {
+    const value = Number(fs.readFileSync(portFile(), 'utf8').trim());
+    return Number.isInteger(value) && value > 0 && value < 65536 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+// Cherche un serveur TRANSFERT déjà actif (autre instance ou terminal) et mémorise son port.
+async function adoptRunningServer() {
+  for (const candidate of new Set([readPortFile(), DEFAULT_PORT].filter(Boolean))) {
+    if (await isTransfert(candidate)) {
+      port = candidate;
+      return true;
+    }
+  }
+  return false;
+}
+
+// Attend que le serveur lancé par nous annonce son port, puis qu'il réponde.
 async function waitForServer(maxMs = 20000) {
   const start = Date.now();
   while (Date.now() - start < maxMs) {
-    if (await serverIsUp()) return true;
+    const announced = readPortFile();
+    if (announced && (await isTransfert(announced))) {
+      port = announced;
+      return true;
+    }
     if (!serverProcess) return false;
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
@@ -41,7 +83,8 @@ async function waitForServer(maxMs = 20000) {
 
 async function startServer() {
   if (serverProcess) return true;
-  if (await serverIsUp()) return true; // un serveur TRANSFERT tourne déjà (autre instance ou terminal)
+  if (await adoptRunningServer()) return true; // un serveur TRANSFERT tourne déjà (autre instance ou terminal)
+  fs.rmSync(portFile(), { force: true }); // port périmé d'un ancien lancement
   const entry = path.join(__dirname, 'server', 'src', 'server.js');
   serverStopping = false;
   serverProcess = spawn(process.execPath, [entry], {
@@ -49,8 +92,9 @@ async function startServer() {
       ...process.env,
       // Utilise le Node.js intégré à Electron : aucune installation de Node.js n'est nécessaire.
       ELECTRON_RUN_AS_NODE: '1',
-      TRANSFERT_DATA_DIR: path.join(app.getPath('userData'), 'data'),
-      TRANSFERT_PORT: String(PORT),
+      TRANSFERT_DATA_DIR: dataDir(),
+      // TRANSFERT_PORT n'est transmis que s'il a été imposé : sinon le serveur prend le premier port libre.
+      ...(process.env.TRANSFERT_PORT ? { TRANSFERT_PORT: process.env.TRANSFERT_PORT } : {}),
     },
     windowsHide: true,
     stdio: 'ignore',
@@ -63,7 +107,7 @@ async function startServer() {
       dialog.showErrorBox(
         'TRANSFERT',
         code === 1
-          ? `Le serveur n'a pas pu démarrer. Le port ${PORT} est peut-être déjà utilisé par une autre application.`
+          ? `Le serveur n'a pas pu démarrer. Le port ${DEFAULT_PORT} est imposé par TRANSFERT_PORT mais déjà utilisé par une autre application : supprimez cette variable pour qu'un port libre soit choisi automatiquement. Détails : logs\\server.log.`
           : `Le serveur s'est arrêté de façon inattendue (code ${code}).`,
       );
     }
@@ -78,7 +122,8 @@ async function stopServer() {
   serverStopping = true;
   const child = serverProcess;
   const done = new Promise((resolve) => child.once('exit', resolve));
-  await request('POST', '/api/local/shutdown');
+  // On ne contacte que notre propre serveur (port annoncé), jamais l'autre application.
+  if (await isTransfert(port)) await request('POST', '/api/local/shutdown');
   const timer = setTimeout(() => child.kill(), 4000);
   await done;
   clearTimeout(timer);
@@ -103,7 +148,7 @@ function showWindow() {
       return { action: 'deny' };
     });
     mainWindow.webContents.on('will-navigate', (event, url) => {
-      if (!url.startsWith(URL_LOCAL)) {
+      if (!url.startsWith(urlLocal())) {
         event.preventDefault();
         shell.openExternal(url);
       }
@@ -115,7 +160,7 @@ function showWindow() {
       }
     });
     mainWindow.on('closed', () => { mainWindow = null; });
-    mainWindow.loadURL(URL_LOCAL);
+    mainWindow.loadURL(urlLocal());
   }
   mainWindow.show();
   mainWindow.focus();
@@ -154,7 +199,9 @@ if (!app.requestSingleInstanceLock()) {
     tray.on('click', showWindow);
     updateTrayMenu();
     const ready = await startServer();
-    if (!ready) {
+    if (!ready && !serverProcess) {
+      // Déjà signalé par la boîte de dialogue d'erreur de l'arrêt du serveur.
+    } else if (!ready) {
       dialog.showErrorBox('TRANSFERT', "Le serveur ne répond pas. Consultez le fichier logs\\server.log dans le dossier de données de l'application.");
     }
     showWindow();

@@ -11,11 +11,24 @@ export const DATA_DIR = process.env.TRANSFERT_DATA_DIR
   : path.join(SERVER_ROOT, 'data');
 export const WEB_DIST_DIR = path.join(PROJECT_ROOT, 'dist');
 export const PID_FILE = path.join(DATA_DIR, 'server.pid');
+// Port réellement utilisé par le serveur (écrit au démarrage, supprimé à l'arrêt).
+export const PORT_FILE = path.join(DATA_DIR, 'server.port');
 
 export const APP_NAME = 'TRANSFERT';
 export const APP_VERSION = '1.0.0';
 export const HOST = '0.0.0.0';
-export const PORT = Number(process.env.TRANSFERT_PORT) || 8787;
+export const DEFAULT_PORT = 8787;
+// Port imposé par l'utilisateur : dans ce cas on ne cherche pas d'alternative.
+const requestedPort = Number(process.env.TRANSFERT_PORT);
+export const PORT_FORCED = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort < 65536;
+export const PREFERRED_PORT = PORT_FORCED ? requestedPort : DEFAULT_PORT;
+// Si le port préféré est pris (par exemple par une autre application), on essaie les suivants.
+export const PORT_FALLBACK_COUNT = 20;
+// Port réel du serveur : défini au démarrage par setActivePort() (liaison « live » pour les autres modules).
+export let PORT = PREFERRED_PORT;
+export function setActivePort(port) {
+  PORT = port;
+}
 
 export const PAIRING_TOKEN_TTL_MS = 5 * 60 * 1000;
 export const PAIRING_REQUEST_TTL_MS = 2 * 60 * 1000;

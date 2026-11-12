@@ -8,7 +8,7 @@ Au premier démarrage, Windows peut afficher une alerte « Accès réseau » pou
 - Ne cochez **pas** « Réseaux publics » : un réseau public ne doit pas accéder au serveur.
 - Si vous avez refusé, ouvrez « Sécurité Windows » > « Pare-feu et protection du réseau » > « Autoriser une application », puis autorisez `Node.js JavaScript Runtime` sur les réseaux privés.
 
-Le serveur écoute le port 8787 (ou `TRANSFERT_PORT`) sur toutes les interfaces réseau du PC, pour être joignable depuis le téléphone sur le Wi-Fi. Il n'est pas accessible depuis Internet, sauf si vous configurez vous-même une redirection de port sur votre box, ce que TRANSFERT ne fait pas.
+Le serveur écoute le port 8787 (ou le premier port libre suivant si 8787 est déjà pris par une autre application, ou `TRANSFERT_PORT` s'il est défini) sur toutes les interfaces réseau du PC, pour être joignable depuis le téléphone sur le Wi-Fi. Il n'est pas accessible depuis Internet, sauf si vous configurez vous-même une redirection de port sur votre box, ce que TRANSFERT ne fait pas.
 
 ## Trouver l'adresse du PC
 

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-const { parseServerAddress, isPrivateHost } = createRequire(import.meta.url)('../www/pcAddress.js');
+const { parseServerAddress, isPrivateHost, candidateOrigins } = createRequire(import.meta.url)('../www/pcAddress.js');
 assert.deepEqual(parseServerAddress('http://192.168.1.20:8787/?pair=AbC_-1'), { origin: 'http://192.168.1.20:8787', pair: 'AbC_-1', url: 'http://192.168.1.20:8787/?pair=AbC_-1' });
+assert.deepEqual(candidateOrigins('http://192.168.1.20:9000'), ['http://192.168.1.20:9000']);
+assert.equal(candidateOrigins('http://192.168.1.20:8787')[0], 'http://192.168.1.20:8787');
+assert.equal(candidateOrigins('http://192.168.1.20:8787')[1], 'http://192.168.1.20:8788');
+assert.equal(candidateOrigins('http://mon-pc.local:8787').length, 21);
 assert.equal(parseServerAddress('192.168.1.20').origin, 'http://192.168.1.20:8787');
 assert.equal(parseServerAddress('  10.0.0.5:9000 ').origin, 'http://10.0.0.5:9000');
 assert.equal(parseServerAddress('http://DESKTOP-ABC:8787').origin, 'http://desktop-abc:8787');

@@ -73,16 +73,30 @@
     }
   }
 
+  // Essaie l'adresse donnée puis, pour le port par défaut, les ports voisins : si une autre application
+  // occupe déjà 8787 sur le PC, TRANSFERT s'est placé sur un autre port.
+  async function findPc(origin) {
+    var origins = window.PcAddress.candidateOrigins(origin);
+    for (var i = 0; i < origins.length; i++) {
+      try {
+        var info = await fetchInfo(origins[i]);
+        return { origin: origins[i], info: info };
+      } catch (e) {
+        // essai suivant
+      }
+    }
+    return null;
+  }
+
   async function openPc(origin, pair) {
     say('Connexion au PC…', true);
-    var info;
-    try {
-      info = await fetchInfo(origin);
-    } catch (e) {
+    var found = await findPc(origin);
+    if (!found) {
       say('PC introuvable. Vérifiez qu\'il est allumé, que TRANSFERT est lancé et que le téléphone est sur le même Wi-Fi.');
       return;
     }
-    remember(origin, info.computerName);
+    origin = found.origin;
+    remember(origin, found.info.computerName);
     window.location.href = origin + '/' + (pair ? '?pair=' + encodeURIComponent(pair) : '');
   }
 

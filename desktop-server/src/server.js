@@ -1,15 +1,51 @@
 import fs from 'node:fs/promises';
 import { createApp } from './app.js';
-import { APP_VERSION, CLEANUP_INTERVAL_MS, DATA_DIR, HOST, PID_FILE, PORT } from './config.js';
+import { APP_VERSION, CLEANUP_INTERVAL_MS, DATA_DIR, HOST, PID_FILE, PORT_FORCED, setActivePort } from './config.js';
 import { logger } from './logger.js';
 import { cleanupStaleSessions } from './services/uploadService.js';
 import { purgeExpiredDevices } from './services/deviceService.js';
 import { ensureDefaultFolders } from './services/settingsService.js';
 import { getLocalIPv4Addresses } from './services/networkService.js';
+import { candidatePorts, findRunningInstance, removePortFile, writePortFile } from './services/portService.js';
+
+/** Écoute sur le premier port libre : une autre application peut déjà occuper 8787. */
+async function listenOnFreePort(app) {
+  const ports = await candidatePorts();
+  let lastError;
+  for (const port of ports) {
+    try {
+      const server = await new Promise((resolve, reject) => {
+        const candidate = app.listen(port, HOST);
+        candidate.once('listening', () => resolve(candidate));
+        candidate.once('error', reject);
+      });
+      return { server, port };
+    } catch (error) {
+      lastError = error;
+      if (error.code !== 'EADDRINUSE' && error.code !== 'EACCES') throw error;
+    }
+  }
+  // Dernier recours : laisser le système choisir un port libre.
+  if (!PORT_FORCED) {
+    const server = await new Promise((resolve, reject) => {
+      const candidate = app.listen(0, HOST);
+      candidate.once('listening', () => resolve(candidate));
+      candidate.once('error', reject);
+    });
+    return { server, port: server.address().port };
+  }
+  throw lastError;
+}
 
 async function main() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   const settings = await ensureDefaultFolders();
+
+  const existing = await findRunningInstance();
+  if (existing) {
+    console.log(`TRANSFERT est déjà lancé : http://localhost:${existing}`);
+    process.exit(0);
+  }
 
   let server;
   let stopping = false;
@@ -18,7 +54,7 @@ async function main() {
     stopping = true;
     console.log('Arrêt du serveur TRANSFERT...');
     server.close(() => {
-      fs.rm(PID_FILE, { force: true }).finally(() => process.exit(0));
+      Promise.all([fs.rm(PID_FILE, { force: true }), removePortFile()]).finally(() => process.exit(0));
     });
     setTimeout(() => process.exit(0), 3000).unref();
   };
@@ -31,22 +67,30 @@ async function main() {
   setInterval(runMaintenance, CLEANUP_INTERVAL_MS).unref();
 
   const app = createApp({ onShutdown: shutdown });
-  server = app.listen(PORT, HOST, () => {
-    logger.info('Serveur démarré', { version: APP_VERSION, computerName: settings.computerName, port: PORT });
-    console.log(`TRANSFERT ${APP_VERSION} - "${settings.computerName}" démarré.`);
-    console.log(`Sur cet ordinateur : http://localhost:${PORT}`);
-    for (const ip of getLocalIPv4Addresses()) {
-      console.log(`Sur le réseau Wi-Fi : http://${ip}:${PORT}`);
-    }
-  });
-  server.on('error', (error) => {
+  let port;
+  try {
+    ({ server, port } = await listenOnFreePort(app));
+  } catch (error) {
     if (error.code === 'EADDRINUSE') {
-      console.error(`Le port ${PORT} est déjà utilisé. Fermez l'autre application ou changez TRANSFERT_PORT.`);
+      console.error(`Le port ${error.port ?? ''} est déjà utilisé et TRANSFERT_PORT l'impose. Supprimez TRANSFERT_PORT pour choisir un port libre automatiquement.`);
     } else {
       console.error('Impossible de démarrer le serveur :', error);
     }
     process.exit(1);
-  });
+  }
+  setActivePort(port);
+  // Garde le serveur en vie si une erreur survient après le démarrage.
+  server.on('error', (error) => logger.error('Erreur du serveur', { stack: String(error?.stack ?? error) }));
+  await writePortFile(port);
+  logger.info('Serveur démarré', { version: APP_VERSION, computerName: settings.computerName, port });
+  console.log(`TRANSFERT ${APP_VERSION} - "${settings.computerName}" démarré.`);
+  if (port !== 8787 && !PORT_FORCED) {
+    console.log('Le port 8787 est utilisé par une autre application : TRANSFERT utilise un autre port.');
+  }
+  console.log(`Sur cet ordinateur : http://localhost:${port}`);
+  for (const ip of getLocalIPv4Addresses()) {
+    console.log(`Sur le réseau Wi-Fi : http://${ip}:${port}`);
+  }
 
   await fs.writeFile(PID_FILE, String(process.pid), 'utf8');
   process.on('SIGINT', shutdown);
