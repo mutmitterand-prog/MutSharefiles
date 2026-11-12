@@ -17,13 +17,14 @@ export const PORT_FILE = path.join(DATA_DIR, 'server.port');
 export const APP_NAME = 'TRANSFERT';
 export const APP_VERSION = '1.0.0';
 export const HOST = '0.0.0.0';
+// Port préféré pour conserver la compatibilité avec les appareils déjà associés.
+// Si ce port est occupé, le serveur essaie automatiquement un port éphémère libre.
 export const DEFAULT_PORT = 8787;
-// Port imposé par l'utilisateur : dans ce cas on ne cherche pas d'alternative.
+// Une surcharge explicite reste possible pour les installations administrées.
 const requestedPort = Number(process.env.TRANSFERT_PORT);
 export const PORT_FORCED = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort < 65536;
 export const PREFERRED_PORT = PORT_FORCED ? requestedPort : DEFAULT_PORT;
-// Si le port préféré est pris (par exemple par une autre application), on essaie les suivants.
-export const PORT_FALLBACK_COUNT = 20;
+export const PORT_FALLBACK_COUNT = 0;
 // Port réel du serveur : défini au démarrage par setActivePort() (liaison « live » pour les autres modules).
 export let PORT = PREFERRED_PORT;
 export function setActivePort(port) {

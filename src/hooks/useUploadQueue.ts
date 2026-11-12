@@ -39,12 +39,15 @@ export function useUploadQueue(config: QueueConfig) {
 
   const runItem = async (item: QueueItem) => {
     const { basePath, token, meta } = configRef.current;
+    const relativePath = (item.file as File & { webkitRelativePath?: string }).webkitRelativePath ?? '';
+    const relativeFolder = relativePath.includes('/') ? relativePath.split('/').slice(0, -1).join('/') : '';
+    const destinationFolder = [meta.folder, relativeFolder].filter(Boolean).join('/');
     patch(item.key, { status: 'preparing', error: null, sent: 0, speed: 0 });
     try {
       const result = await uploadFile(item.file, {
         basePath,
         token,
-        meta: { ...meta, policy: item.policy },
+        meta: { ...meta, folder: destinationFolder, policy: item.policy },
         control: item.control,
         onPreparing: () => patch(item.key, { status: 'preparing' }),
         onProgress: ({ sent, speedBytesPerSec }) => patch(item.key, { status: 'uploading', sent, speed: speedBytesPerSec }),

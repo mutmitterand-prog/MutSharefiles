@@ -16,7 +16,7 @@ import {
   removeSharedFolder,
   updateComputerName,
 } from '../services/settingsService.js';
-import { listFolder } from '../services/fileBrowserService.js';
+import { getFileMetadata, listFolder, mutateFile, searchFiles, resolveFileInFolder } from '../services/fileBrowserService.js';
 import { deleteOutboxItem, listOutbox } from '../services/outboxService.js';
 import { listHistory } from '../services/historyService.js';
 import { getDiskSpace } from '../services/diskService.js';
@@ -95,6 +95,31 @@ export function createLocalRouter({ onShutdown }) {
 
   router.get('/files', async (req, res) => {
     res.json(await listFolder(String(req.query.root ?? ''), String(req.query.path ?? '')));
+  });
+
+  router.get('/files/search', async (req, res) => {
+    res.json(await searchFiles(String(req.query.root ?? ''), String(req.query.q ?? '')));
+  });
+
+  router.post('/files/operations', async (req, res) => {
+    const { rootId, operation, ...payload } = req.body ?? {};
+    res.json(await mutateFile(String(rootId ?? ''), String(operation ?? ''), payload));
+  });
+
+  router.get('/files/info', async (req, res) => {
+    res.json(await getFileMetadata(String(req.query.root ?? ''), String(req.query.path ?? '')));
+  });
+
+  router.get('/files/preview', async (req, res, next) => {
+    try {
+      const file = await resolveFileInFolder(String(req.query.root ?? ''), String(req.query.path ?? ''));
+      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const types = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', pdf: 'application/pdf', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4' };
+      res.setHeader('Content-Type', types[extension] ?? 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.sendFile(file.filePath, (error) => { if (error && !res.headersSent) next(error); });
+    } catch (error) { next(error); }
   });
 
   router.get('/outbox', async (req, res) => {

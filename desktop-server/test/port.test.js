@@ -33,12 +33,12 @@ test('une autre application qui répond 200 sur /api/info n\'est pas prise pour 
   assert.equal(await ports.isTransfertServer(1), false); // rien n'écoute
 });
 
-test('les ports candidats commencent par le dernier port utilisé puis 8787, 8788...', async () => {
+test('le port précédent est réutilisé, puis 8787 est préféré avant un port éphémère', async () => {
   assert.equal(config.PORT_FORCED, false);
-  assert.deepEqual((await ports.candidatePorts()).slice(0, 3), [8787, 8788, 8789]);
-  await ports.writePortFile(8791);
+  assert.deepEqual(await ports.candidatePorts(), [8787, 0]);
+  await ports.writePortFile(49152);
   const list = await ports.candidatePorts();
-  assert.equal(list[0], 8791);
+  assert.deepEqual(list, [49152, 8787, 0]);
   assert.equal(new Set(list).size, list.length);
   await ports.removePortFile();
   assert.equal(await ports.readSavedPort(), null);

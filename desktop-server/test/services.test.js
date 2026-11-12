@@ -19,6 +19,7 @@ const { readJson, writeJsonAtomic } = await import('../src/services/jsonStore.js
 const { requireLocal } = await import('../src/middleware/auth.js');
 const settings = await import('../src/services/settingsService.js');
 const { redact } = await import('../src/logger.js');
+const fileBrowser = await import('../src/services/fileBrowserService.js');
 
 const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 
@@ -47,6 +48,27 @@ async function upload(actor, name, data, { policy = 'rename', chunk = 1024 } = {
   }
   return session;
 }
+
+
+test('gestion des fichiers : création, recherche, renommage, copie et suppression confinées au partage', async () => {
+  await fileBrowser.mutateFile('partage', 'mkdir', { path: '', name: 'Dossier A' });
+  await fs.writeFile(path.join(sharedDir, 'Dossier A', 'photo.jpg'), 'image');
+  const found = await fileBrowser.searchFiles('partage', 'photo');
+  assert.equal(found.items.length, 1);
+  assert.equal(found.items[0].path, 'Dossier A/photo.jpg');
+  await fileBrowser.mutateFile('partage', 'rename', { path: 'Dossier A/photo.jpg', name: 'image.jpg' });
+  await fileBrowser.mutateFile('partage', 'copy', { path: 'Dossier A/image.jpg', destination: '' });
+  assert.equal(await fs.readFile(path.join(sharedDir, 'image.jpg'), 'utf8'), 'image');
+  await fileBrowser.mutateFile('partage', 'delete', { path: 'Dossier A' });
+  assert.equal(await fs.stat(path.join(sharedDir, 'Dossier A')).then(() => true).catch(() => false), false);
+});
+
+test('gestion des fichiers : refuse les chemins hors du dossier partagé et les collisions', async () => {
+  await fs.writeFile(path.join(sharedDir, 'existant.txt'), '1');
+  await fs.writeFile(path.join(sharedDir, 'autre.txt'), '2');
+  await assert.rejects(fileBrowser.mutateFile('partage', 'rename', { path: 'existant.txt', name: 'autre.txt' }), (e) => e.code === 'DESTINATION_EXISTS');
+  await assert.rejects(fileBrowser.mutateFile('partage', 'delete', { path: '../hors.txt' }), (e) => e.code === 'INVALID_PATH');
+});
 
 test('limiteur : blocage après N échecs puis déblocage', () => {
   let time = 1000;

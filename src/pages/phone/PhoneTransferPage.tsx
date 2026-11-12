@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { InputHTMLAttributes } from 'react';
 import { Download, FileUp, Pause, Play, Upload, XCircle } from 'lucide-react';
 import { Button, Card, EmptyState, PageHeader, ProgressBar, ErrorBanner } from '@/components/ui';
 import { UploadQueue } from '@/components/UploadQueue';
@@ -45,6 +46,7 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
 }
 
 function SendToPc({ token }: Props) {
+  const directoryPickerProps = { webkitdirectory: '' } as InputHTMLAttributes<HTMLInputElement> & { webkitdirectory?: string };
   const roots = usePolling(() => apiRequest<{ items: SharedFolder[] }>('/api/device/roots', { token }), 60000, [token]);
   const rootId = roots.data?.items[0]?.id;
   const queue = useUploadQueue({
@@ -75,6 +77,24 @@ function SendToPc({ token }: Props) {
         {roots.data && !rootId && (
           <div className="mt-4"><ErrorBanner message="Aucun dossier partagé n'est configuré sur le PC." /></div>
         )}
+        <div className="mt-3 text-center">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-teal-200 px-4 py-2.5 text-sm font-medium text-teal-700 hover:bg-teal-50 dark:border-teal-900 dark:text-teal-300 dark:hover:bg-teal-500/10">
+            <Upload size={16} /> Envoyer un dossier complet
+            <input
+              type="file"
+              multiple
+              {...directoryPickerProps}
+              className="sr-only"
+              disabled={!rootId}
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                if (files.length > 0) queue.enqueue(files);
+                event.target.value = '';
+              }}
+            />
+          </label>
+          <p className="mt-2 text-xs text-slate-500">L'arborescence et les noms sont conservés lorsque le navigateur prend en charge la sélection de dossiers. Sinon, utilisez « Choisir des fichiers ».</p>
+        </div>
       </Card>
 
       <UploadQueue

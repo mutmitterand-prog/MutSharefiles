@@ -1,6 +1,5 @@
 // Analyse des adresses de PC (QR code ou saisie manuelle). Aucune dépendance : testable avec Node.js.
 (function (root) {
-  var DEFAULT_PORT = '8787';
 
   function isPrivateHost(hostname) {
     var host = hostname.toLowerCase();
@@ -30,23 +29,15 @@
     if (!isPrivateHost(url.hostname)) {
       throw new Error("Cette adresse n'est pas celle d'un ordinateur de votre réseau local.");
     }
-    var port = url.port || (url.protocol === 'http:' ? DEFAULT_PORT : '');
+    if (url.protocol === 'http:' && !url.port) throw new Error('Ajoutez le port affiché dans TRANSFERT, ou scannez directement son QR code.');
+    var port = url.port || ''; 
     var origin = url.protocol + '//' + url.hostname + (port ? ':' + port : '');
     var pair = url.searchParams.get('pair');
     return { origin: origin, pair: pair, url: origin + '/' + (pair ? '?pair=' + encodeURIComponent(pair) : '') };
   }
 
-  /**
-   * Adresses à essayer pour un PC : si l'adresse utilise le port par défaut, TRANSFERT a pu prendre
-   * un port voisin (8788, 8789...) parce qu'une autre application occupe déjà 8787.
-   */
-  function candidateOrigins(origin) {
-    var m = /^(https?:\/\/[^/:]+):(\d+)$/.exec(origin);
-    if (!m || m[2] !== DEFAULT_PORT) return [origin];
-    var list = [origin];
-    for (var i = 1; i <= 20; i++) list.push(m[1] + ':' + (Number(DEFAULT_PORT) + i));
-    return list;
-  }
+  /** Le port exact est fourni par le QR code ou l'adresse affichée sur le PC. */
+  function candidateOrigins(origin) { return [origin]; }
 
   var api = { parseServerAddress: parseServerAddress, isPrivateHost: isPrivateHost, candidateOrigins: candidateOrigins };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

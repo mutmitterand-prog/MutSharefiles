@@ -8,7 +8,7 @@ import { ensureDefaultFolders } from './services/settingsService.js';
 import { getLocalIPv4Addresses } from './services/networkService.js';
 import { candidatePorts, findRunningInstance, removePortFile, writePortFile } from './services/portService.js';
 
-/** Écoute sur le premier port libre : une autre application peut déjà occuper 8787. */
+/** Demande au système un port TCP libre : aucun port d'une autre application n'est interrompu. */
 async function listenOnFreePort(app) {
   const ports = await candidatePorts();
   let lastError;
@@ -19,20 +19,11 @@ async function listenOnFreePort(app) {
         candidate.once('listening', () => resolve(candidate));
         candidate.once('error', reject);
       });
-      return { server, port };
+      return { server, port: server.address()?.port ?? port };
     } catch (error) {
       lastError = error;
       if (error.code !== 'EADDRINUSE' && error.code !== 'EACCES') throw error;
     }
-  }
-  // Dernier recours : laisser le système choisir un port libre.
-  if (!PORT_FORCED) {
-    const server = await new Promise((resolve, reject) => {
-      const candidate = app.listen(0, HOST);
-      candidate.once('listening', () => resolve(candidate));
-      candidate.once('error', reject);
-    });
-    return { server, port: server.address().port };
   }
   throw lastError;
 }
@@ -72,7 +63,7 @@ async function main() {
     ({ server, port } = await listenOnFreePort(app));
   } catch (error) {
     if (error.code === 'EADDRINUSE') {
-      console.error(`Le port ${error.port ?? ''} est déjà utilisé et TRANSFERT_PORT l'impose. Supprimez TRANSFERT_PORT pour choisir un port libre automatiquement.`);
+      console.error(`Le port ${error.port ?? ''} demandé explicitement est indisponible. Retirez TRANSFERT_PORT pour laisser le système choisir un port libre.`);
     } else {
       console.error('Impossible de démarrer le serveur :', error);
     }
@@ -84,9 +75,7 @@ async function main() {
   await writePortFile(port);
   logger.info('Serveur démarré', { version: APP_VERSION, computerName: settings.computerName, port });
   console.log(`TRANSFERT ${APP_VERSION} - "${settings.computerName}" démarré.`);
-  if (port !== 8787 && !PORT_FORCED) {
-    console.log('Le port 8787 est utilisé par une autre application : TRANSFERT utilise un autre port.');
-  }
+  console.log('Port attribué automatiquement par le système : aucune autre application n’est interrompue.');
   console.log(`Sur cet ordinateur : http://localhost:${port}`);
   for (const ip of getLocalIPv4Addresses()) {
     console.log(`Sur le réseau Wi-Fi : http://${ip}:${port}`);

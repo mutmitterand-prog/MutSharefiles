@@ -6,7 +6,7 @@ Transfert de fichiers entre un PC Windows et un téléphone Android, sur le rés
 
 1. Installez Node.js 20.10 ou plus récent (https://nodejs.org).
 2. Extrayez le ZIP, puis double-cliquez sur `scripts\install-windows.bat`.
-3. Double-cliquez sur `scripts\start-windows.bat` et ouvrez l'adresse affichée dans la fenêtre du serveur (http://localhost:8787, ou un autre port si 8787 est déjà pris).
+3. Double-cliquez sur `scripts\start-windows.bat` et ouvrez l'adresse affichée dans la fenêtre du serveur (l’adresse affichée par le serveur (port attribué automatiquement)).
 4. Scannez le QR code avec le téléphone (même Wi-Fi).
 5. Pour arrêter : `scripts\stop-windows.bat`.
 

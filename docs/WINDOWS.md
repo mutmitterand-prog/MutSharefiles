@@ -8,18 +8,18 @@ Au premier démarrage, Windows peut afficher une alerte « Accès réseau » pou
 - Ne cochez **pas** « Réseaux publics » : un réseau public ne doit pas accéder au serveur.
 - Si vous avez refusé, ouvrez « Sécurité Windows » > « Pare-feu et protection du réseau » > « Autoriser une application », puis autorisez `Node.js JavaScript Runtime` sur les réseaux privés.
 
-Le serveur écoute le port 8787 (ou le premier port libre suivant si 8787 est déjà pris par une autre application, ou `TRANSFERT_PORT` s'il est défini) sur toutes les interfaces réseau du PC, pour être joignable depuis le téléphone sur le Wi-Fi. Il n'est pas accessible depuis Internet, sauf si vous configurez vous-même une redirection de port sur votre box, ce que TRANSFERT ne fait pas.
+Le serveur essaie d’abord le port 8787 pour conserver les anciennes associations, puis demande automatiquement un port TCP libre si celui-ci est occupé (ou utilise `TRANSFERT_PORT` uniquement si cette variable a été explicitement définie) sur toutes les interfaces réseau du PC, pour être joignable depuis le téléphone sur le Wi-Fi. Il n'est pas accessible depuis Internet, sauf si vous configurez vous-même une redirection de port sur votre box, ce que TRANSFERT ne fait pas.
 
 ## Trouver l'adresse du PC
 
-TRANSFERT affiche l'adresse locale du PC (par exemple `http://192.168.1.20:8787`) sur l'accueil du tableau de bord. Elle est aussi écrite dans la fenêtre du serveur au démarrage.
+TRANSFERT affiche l’adresse locale complète du PC avec le port réellement attribué (par exemple `http://192.168.1.20:49152`) sur l’accueil du tableau de bord et dans la fenêtre du serveur.
 
 ## Points à vérifier si la connexion échoue
 
 - Le PC et le téléphone sont sur le **même** Wi-Fi (pas le réseau invité, pas la 5G du téléphone).
 - Le réseau Wi-Fi est défini comme **privé** dans Windows (Paramètres > Réseau et Internet > Wi-Fi > Propriétés).
 - Certaines box isolent les appareils Wi-Fi (« isolation client » ou « AP isolation »). Désactivez-la dans les réglages de la box si le téléphone ne voit pas le PC.
-- Un antivirus peut bloquer le port : autorisez Node.js ou ajoutez une exception pour le port.
+- Un antivirus peut bloquer le port : autorisez Node.js sur le réseau privé. Si nécessaire, démarrez TRANSFERT puis lancez `scripts\autoriser-pare-feu-windows.bat` en tant qu’administrateur : le script ouvre uniquement le port actuellement attribué.
 
 ## Arrêt et stratégie de sécurité
 

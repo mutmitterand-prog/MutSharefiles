@@ -15,8 +15,10 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    proxy: {
-      '/api': 'http://localhost:8787',
-    },
+    // En développement, définissez VITE_API_PROXY_TARGET avec l'adresse réelle du serveur.
+    // Aucun port n'est imposé par le code de l'application.
+    ...(process.env.VITE_API_PROXY_TARGET
+      ? { proxy: { '/api': process.env.VITE_API_PROXY_TARGET } }
+      : {}),
   },
 });

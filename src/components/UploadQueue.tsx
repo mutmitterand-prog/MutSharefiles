@@ -28,6 +28,9 @@ const LABELS: Record<QueueItem['status'], string> = {
 export function UploadQueue({ items, onPause, onResume, onRetry, onCancel, onReplace, onKeepBoth, onClear }: Props) {
   if (items.length === 0) return null;
   const finishedCount = items.filter((item) => ['completed', 'failed', 'cancelled'].includes(item.status)).length;
+  const totalBytes = items.reduce((sum, item) => sum + item.file.size, 0);
+  const sentBytes = items.reduce((sum, item) => sum + (item.status === 'completed' ? item.file.size : item.sent), 0);
+  const globalProgress = totalBytes > 0 ? (sentBytes / totalBytes) * 100 : (finishedCount / items.length) * 100;
 
   return (
     <Card>
@@ -38,6 +41,10 @@ export function UploadQueue({ items, onPause, onResume, onRetry, onCancel, onRep
             Effacer les terminés
           </Button>
         )}
+      </div>
+      <div className="mb-4 space-y-2">
+        <div className="flex justify-between text-xs text-slate-500"><span>Progression globale</span><span>{Math.round(globalProgress)} % · {items.filter((item) => item.status === 'completed').length}/{items.length} fichiers terminés</span></div>
+        <ProgressBar value={globalProgress} />
       </div>
       <ul className="space-y-4">
         {items.map((item) => {
@@ -50,6 +57,7 @@ export function UploadQueue({ items, onPause, onResume, onRetry, onCancel, onRep
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">{item.resultName ?? item.file.name}</p>
+                  {(item.file as File & { webkitRelativePath?: string }).webkitRelativePath && <p className="truncate text-xs text-slate-500">{(item.file as File & { webkitRelativePath?: string }).webkitRelativePath}</p>}
                   <p className="text-xs text-slate-500">{formatBytes(item.file.size)}</p>
                 </div>
                 <Badge tone={item.status === 'completed' ? 'success' : item.status === 'failed' || item.status === 'duplicate' ? 'error' : item.status === 'paused' ? 'warning' : 'info'}>

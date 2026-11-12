@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import http from 'node:http';
-import { APP_NAME, PORT_FALLBACK_COUNT, PORT_FILE, PORT_FORCED, PREFERRED_PORT } from '../config.js';
+import { APP_NAME, PORT_FILE, PORT_FORCED, PREFERRED_PORT } from '../config.js';
 
 /** Vrai si un serveur TRANSFERT répond sur ce port (et pas une autre application). */
 export function isTransfertServer(port, timeoutMs = 1500) {
@@ -32,20 +32,21 @@ export async function readSavedPort() {
   }
 }
 
-/** Ordre d'essai : dernier port utilisé (pour que l'adresse reste stable), puis 8787, 8788, ... */
+/**
+ * Essaie d'abord le dernier port réellement utilisé, puis le port historique 8787
+ * pour préserver les associations existantes. Si l'un est occupé, 0 demande au
+ * système un port libre. Aucun processus tiers n'est arrêté ou modifié.
+ */
 export async function candidatePorts() {
   if (PORT_FORCED) return [PREFERRED_PORT];
-  const list = [];
   const saved = await readSavedPort();
-  if (saved) list.push(saved);
-  for (let i = 0; i <= PORT_FALLBACK_COUNT; i += 1) list.push(PREFERRED_PORT + i);
-  return [...new Set(list.filter((p) => p < 65536))];
+  return [...new Set([saved, PREFERRED_PORT, 0].filter((port) => port !== null && port !== undefined))];
 }
 
 /** Retourne le port d'un serveur TRANSFERT déjà lancé avec ces données, sinon null. */
 export async function findRunningInstance() {
   for (const port of await candidatePorts()) {
-    if (await isTransfertServer(port)) return port;
+    if (port > 0 && await isTransfertServer(port)) return port;
   }
   return null;
 }

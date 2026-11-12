@@ -43,7 +43,7 @@
       info.appendChild(sub);
       var open = document.createElement('button');
       open.textContent = 'Ouvrir';
-      open.addEventListener('click', function () { openPc(pc.origin, null); });
+      open.addEventListener('click', function () { openPc(pc.origin, null, true); });
       var remove = document.createElement('button');
       remove.textContent = '✕';
       remove.className = 'remove';
@@ -73,8 +73,7 @@
     }
   }
 
-  // Essaie l'adresse donnée puis, pour le port par défaut, les ports voisins : si une autre application
-  // occupe déjà 8787 sur le PC, TRANSFERT s'est placé sur un autre port.
+  // L'adresse complète contient le port attribué au démarrage ; aucune recherche de ports voisins.
   async function findPc(origin) {
     var origins = window.PcAddress.candidateOrigins(origin);
     for (var i = 0; i < origins.length; i++) {
@@ -88,11 +87,13 @@
     return null;
   }
 
-  async function openPc(origin, pair) {
+  async function openPc(origin, pair, fromSavedList) {
     say('Connexion au PC…', true);
     var found = await findPc(origin);
     if (!found) {
-      say('PC introuvable (' + origin + '). Vérifiez qu\'il est allumé, que TRANSFERT est lancé, que le téléphone est sur le même Wi-Fi et que le pare-feu Windows autorise TRANSFERT (scripts\\autoriser-pare-feu-windows.bat).');
+      say(fromSavedList
+        ? 'Cette ancienne adresse enregistrée ne répond plus (' + origin + '). Le port du serveur a probablement changé. Retournez sur le PC, ouvrez TRANSFERT et scannez le QR code ACTUEL. Vous pouvez aussi supprimer cette ancienne entrée avec ✕.'
+        : 'PC introuvable (' + origin + '). Vérifiez que TRANSFERT est lancé, puis scannez le QR code ACTUEL affiché sur le PC. Si nécessaire, autorisez le port actuel dans le pare-feu Windows avec scripts\\autoriser-pare-feu-windows.bat.');
       return;
     }
     origin = found.origin;

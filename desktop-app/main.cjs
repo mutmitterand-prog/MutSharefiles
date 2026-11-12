@@ -6,10 +6,8 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 
-// Port préféré : 8787. S'il est occupé par une autre application, le serveur en choisit un autre
-// tout seul et l'écrit dans server.port ; `port` est alors mis à jour (voir startServer).
-const DEFAULT_PORT = Number(process.env.TRANSFERT_PORT) || 8787;
-let port = DEFAULT_PORT;
+// Le serveur choisit lui-même un port TCP libre et l'annonce dans server.port.
+let port = 0;
 const urlLocal = () => `http://localhost:${port}`;
 const dataDir = () => path.join(app.getPath('userData'), 'data');
 const portFile = () => path.join(dataDir(), 'server.port');
@@ -57,7 +55,7 @@ function readPortFile() {
 
 // Cherche un serveur TRANSFERT déjà actif (autre instance ou terminal) et mémorise son port.
 async function adoptRunningServer() {
-  for (const candidate of new Set([readPortFile(), DEFAULT_PORT].filter(Boolean))) {
+  for (const candidate of new Set([readPortFile()].filter(Boolean))) {
     if (await isTransfert(candidate)) {
       port = candidate;
       return true;
@@ -93,7 +91,7 @@ async function startServer() {
       // Utilise le Node.js intégré à Electron : aucune installation de Node.js n'est nécessaire.
       ELECTRON_RUN_AS_NODE: '1',
       TRANSFERT_DATA_DIR: dataDir(),
-      // TRANSFERT_PORT n'est transmis que s'il a été imposé : sinon le serveur prend le premier port libre.
+      // Ne transmet la surcharge que si l'administrateur l'a explicitement définie.
       ...(process.env.TRANSFERT_PORT ? { TRANSFERT_PORT: process.env.TRANSFERT_PORT } : {}),
     },
     windowsHide: true,
@@ -107,7 +105,7 @@ async function startServer() {
       dialog.showErrorBox(
         'TRANSFERT',
         code === 1
-          ? `Le serveur n'a pas pu démarrer. Le port ${DEFAULT_PORT} est imposé par TRANSFERT_PORT mais déjà utilisé par une autre application : supprimez cette variable pour qu'un port libre soit choisi automatiquement. Détails : logs\\server.log.`
+          ? `Le serveur n'a pas pu démarrer sur le port demandé explicitement. Supprimez TRANSFERT_PORT pour utiliser la sélection automatique. Détails : logs\\server.log.`
           : `Le serveur s'est arrêté de façon inattendue (code ${code}).`,
       );
     }
