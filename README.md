@@ -19,12 +19,13 @@ Transfert de fichiers entre un PC Windows et un téléphone Android, sur le rés
 - `docs/TESTS.md` : tests exécutés et tests restant à faire sur de vrais appareils.
 - `android/README.md` : préparation de l'intégration native (Capacitor, SAF).
 
-## Version Android 1.0.12 — USB OTG
+## Version Android 1.0.13 — USB OTG et réseau
 
-- Navigation des dossiers d’une clé USB ou d’un disque dur via le sélecteur Android SAF.
-- Copie en flux USB vers `Téléchargements/TRANSFERT-USB` et copie d’un fichier Android vers le support.
-- FAT32 si Android monte le volume ; NTFS uniquement si le téléphone/le système le prend en charge.
-- Cette fonction nécessite l’APK Android. Le navigateur/PWA ne dispose pas de l’accès natif USB.
+- Lecture directe des supports USB **NTFS, exFAT et FAT32** (MBR/GPT) avec pilotes intégrés, même si Android ne monte pas le volume ; copie en flux vers `Téléchargements/TRANSFERT-USB`.
+- Mode « via Android » (SAF) conservé pour l'écriture quand Android monte le volume.
+- Connexion au PC fiabilisée : liaison au Wi-Fi, sonde native, adresses de secours dans le QR code, ports stables 8787-8799, règle de pare-feu Windows par programme proposée au démarrage.
+- Correction : la bibliothèque jsQR (scan du QR code) n'était pas incluse dans l'APK.
+- Tests des pilotes : `python3 mobile/native/test/run_tests.py` (JDK 17+).
 
 ## Fonctionnalités V1
 

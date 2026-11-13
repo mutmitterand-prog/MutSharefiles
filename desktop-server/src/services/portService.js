@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import http from 'node:http';
-import { APP_NAME, PORT_FILE, PORT_FORCED, PREFERRED_PORT } from '../config.js';
+import { APP_NAME, PORT_FALLBACK_COUNT, PORT_FILE, PORT_FORCED, PREFERRED_PORT } from '../config.js';
 
 /** Vrai si un serveur TRANSFERT répond sur ce port (et pas une autre application). */
 export function isTransfertServer(port, timeoutMs = 1500) {
@@ -33,14 +33,18 @@ export async function readSavedPort() {
 }
 
 /**
- * Essaie d'abord le dernier port réellement utilisé, puis le port historique 8787
- * pour préserver les associations existantes. Si l'un est occupé, 0 demande au
- * système un port libre. Aucun processus tiers n'est arrêté ou modifié.
+ * Ordre d'essai : le dernier port utilisé s'il fait partie de la plage stable (8787-8799), puis cette plage,
+ * puis un ancien port hors plage (ancien port éphémère), enfin 0 (le système choisit un port libre).
+ * Une plage stable évite que le QR code et le pare-feu Windows dépendent d'un port différent à chaque lancement.
+ * Aucun processus tiers n'est arrêté ou modifié.
  */
 export async function candidatePorts() {
   if (PORT_FORCED) return [PREFERRED_PORT];
   const saved = await readSavedPort();
-  return [...new Set([saved, PREFERRED_PORT, 0].filter((port) => port !== null && port !== undefined))];
+  const range = Array.from({ length: PORT_FALLBACK_COUNT + 1 }, (_, i) => PREFERRED_PORT + i);
+  const inRange = saved !== null && range.includes(saved);
+  const ordered = [...(inRange ? [saved] : []), ...range, ...(saved !== null && !inRange ? [saved] : []), 0];
+  return [...new Set(ordered)];
 }
 
 /** Retourne le port d'un serveur TRANSFERT déjà lancé avec ces données, sinon null. */

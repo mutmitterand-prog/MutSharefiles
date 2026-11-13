@@ -37,8 +37,15 @@ Onglet **Fichiers** : ouvrez un dossier partagé, naviguez, et touchez **Téléc
 
 Voir `docs/ANDROID.md` pour l'intégration Capacitor, le sélecteur Android SAF et les permissions de stockage.
 
-## USB OTG (APK Android)
+## USB OTG (APK Android, version 1.0.13)
 
-Depuis cette version, l'écran de lancement propose « Clé USB / disque dur OTG ». Connectez le support avec un adaptateur OTG, choisissez-le dans le sélecteur Android, naviguez dans les dossiers, puis copiez un fichier USB vers `Téléchargements/TRANSFERT-USB`. Le bouton de copie inverse ouvre le sélecteur Android et copie le fichier choisi sur le support USB. Les copies sont faites en flux, adaptées aux gros fichiers et sans chargement intégral en mémoire. Les doublons sont renommés automatiquement.
+L'écran de lancement propose deux boutons :
 
-La compatibilité FAT32 dépend du montage Android. NTFS dépend du téléphone : si Android ne monte pas le volume NTFS, il n'apparaîtra pas dans le sélecteur. L'application ne formate ni ne modifie le système de fichiers. Cette fonction OTG est disponible dans l'APK Android, pas dans la PWA du navigateur.
+- **Détecter le support (NTFS, exFAT, FAT32)** : lecture directe par l'API USB Host d'Android, avec pilotes intégrés FAT16/FAT32, exFAT et NTFS (tables MBR et GPT, secteurs 512 o et 4 Ko). Cela fonctionne même quand Android ne monte pas le volume (cas fréquent de NTFS). Android demande l'accès au support ; un disque dur peut mettre quelques secondes à démarrer. Ce mode est en lecture seule : on navigue et on copie les fichiers vers `Téléchargements/TRANSFERT-USB`, en flux (gros fichiers possibles, barre de progression).
+- **Choisir via Android (écriture possible)** : sélecteur Android (SAF). Permet aussi de copier un fichier du téléphone vers le support, mais uniquement si Android a lui-même monté le volume (FAT32 et exFAT en général ; NTFS selon le téléphone).
+
+Limites : NTFS compressé ou chiffré (EFS) non lisible ; volumes BitLocker, ReFS et ext4 signalés mais non pris en charge ; l'écriture sur NTFS n'est pas disponible. Un disque dur sans alimentation propre (boîtier ou hub alimenté) ne démarre pas toujours sur le courant du téléphone.
+
+## Réseau
+
+L'application force ses connexions à passer par le Wi-Fi (Android peut sinon utiliser les données mobiles quand le Wi-Fi n'a pas d'accès Internet) et sonde le PC avec une requête native. Le QR code contient aussi les autres adresses du PC, essayées automatiquement. Les messages d'erreur distinguent : pare-feu/délai dépassé, port refusé (QR périmé), réseau différent.

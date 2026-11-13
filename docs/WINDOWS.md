@@ -8,7 +8,13 @@ Au premier démarrage, Windows peut afficher une alerte « Accès réseau » pou
 - Ne cochez **pas** « Réseaux publics » : un réseau public ne doit pas accéder au serveur.
 - Si vous avez refusé, ouvrez « Sécurité Windows » > « Pare-feu et protection du réseau » > « Autoriser une application », puis autorisez `Node.js JavaScript Runtime` sur les réseaux privés.
 
-Le serveur essaie d’abord le port 8787 pour conserver les anciennes associations, puis demande automatiquement un port TCP libre si celui-ci est occupé (ou utilise `TRANSFERT_PORT` uniquement si cette variable a été explicitement définie) sur toutes les interfaces réseau du PC, pour être joignable depuis le téléphone sur le Wi-Fi. Il n'est pas accessible depuis Internet, sauf si vous configurez vous-même une redirection de port sur votre box, ce que TRANSFERT ne fait pas.
+Le serveur essaie d’abord le port 8787, puis les ports voisins 8788 à 8799 (stables d’un lancement à l’autre), puis demande un port TCP libre au système en dernier recours (ou utilise `TRANSFERT_PORT` uniquement si cette variable a été explicitement définie) sur toutes les interfaces réseau du PC, pour être joignable depuis le téléphone sur le Wi-Fi. Il n'est pas accessible depuis Internet, sauf si vous configurez vous-même une redirection de port sur votre box, ce que TRANSFERT ne fait pas.
+
+## Autorisation automatique (application TRANSFERT.exe)
+
+Au premier lancement, TRANSFERT propose d'ajouter une règle de pare-feu par programme (réseaux privés et domaine). Acceptez la fenêtre « Administrateur » de Windows. La règle couvre tous les ports : elle reste valable même si le port change. Pour la refaire plus tard : clic droit sur l'icône TRANSFERT > « Autoriser dans le pare-feu Windows ».
+
+Si vous utilisez `start-windows.bat` (Node.js), lancez `scripts\autoriser-pare-feu-windows.bat` : il se relance en administrateur, autorise Node.js et les ports 8787-8799, puis affiche le profil du réseau Wi-Fi.
 
 ## Trouver l'adresse du PC
 

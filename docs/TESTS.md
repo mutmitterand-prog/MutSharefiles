@@ -45,3 +45,7 @@ Les 8 tests d'intégration couvrent : jumelage par QR code et remise unique du j
 4. Envoyer plusieurs fichiers d'un coup, puis tester un doublon.
 5. Couper le Wi-Fi du téléphone pendant un envoi, puis vérifier le message d'erreur et la reprise.
 6. Arrêter le serveur avec `scripts\stop-windows.bat` et vérifier que le téléphone affiche une erreur de connexion.
+
+## Pilotes USB (FAT32 / exFAT / NTFS)
+
+`python3 mobile/native/test/run_tests.py` génère des images (FAT32 avec noms longs et fichiers fragmentés, exFAT avec dossier de 200 fichiers, NTFS avec fichiers résidents, fragmentés, creux, liste d'attributs, index multi-blocs ; MBR, GPT, disque brut, secteurs 512 o et 4 Ko), les lit avec les pilotes Java directement puis via un protocole USB Bulk-Only émulé, et compare taille et SHA-256 de chaque fichier. Reste à faire sur de vrais appareils : disque physique branché en OTG, UAS, alimentation, gros fichiers.

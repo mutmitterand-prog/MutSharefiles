@@ -15,9 +15,11 @@
 
     <section id="usb-panel" class="usb-panel">
       <h2>Clé USB / disque dur OTG</h2>
-      <p class="hint">Parcourez un support USB connecté au téléphone et copiez ses fichiers vers Android, ou envoyez un fichier Android vers le support.</p>
-      <button id="usb-connect" type="button">Connecter un support USB</button>
+      <p class="hint">Branchez le support avec l'adaptateur OTG. « Détecter » lit directement les disques NTFS, exFAT et FAT32 (lecture, copie vers le téléphone). « Via Android » utilise le sélecteur du système (écriture possible si Android a monté le volume).</p>
+      <button id="usb-direct" type="button">Détecter le support (NTFS, exFAT, FAT32)</button>
+      <button id="usb-connect" type="button">Choisir via Android (écriture possible)</button>
       <div id="usb-status" role="status" aria-live="polite">Aucun support sélectionné.</div>
+      <ul id="usb-volumes"></ul>
       <div id="usb-actions" hidden>
         <button id="usb-up" type="button">← Dossier parent</button>
         <button id="usb-to-phone" type="button">Choisir un fichier Android à copier sur USB</button>

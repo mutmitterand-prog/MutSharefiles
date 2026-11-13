@@ -1,5 +1,5 @@
 // Adapte le projet Android généré par « npx cap add android » :
-// permission caméra, trafic HTTP local, téléchargements natifs et numéro de version.
+// permissions, trafic HTTP local, téléchargements natifs, USB OTG (SAF + pilotes directs) et numéro de version.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,12 +20,29 @@ function mustReplace(text, search, replacement, label) {
 
 // --- AndroidManifest.xml
 let manifest = fs.readFileSync(manifestPath, 'utf8');
-if (!manifest.includes('android.permission.CAMERA')) {
-  const permissions = `    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-`;
-  manifest = mustReplace(manifest, '</manifest>', `${permissions}</manifest>`, 'permissions');
+const wantedManifestLines = [
+  ['android.permission.CAMERA', '<uses-permission android:name="android.permission.CAMERA" />'],
+  ['android.permission.WRITE_EXTERNAL_STORAGE', '<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />'],
+  ['android.permission.ACCESS_NETWORK_STATE', '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />'],
+  ['android.permission.ACCESS_WIFI_STATE', '<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />'],
+  ['android.hardware.camera', '<uses-feature android:name="android.hardware.camera" android:required="false" />'],
+  ['android.hardware.usb.host', '<uses-feature android:name="android.hardware.usb.host" android:required="false" />'],
+];
+for (const [needle, line] of wantedManifestLines) {
+  if (!manifest.includes(needle)) manifest = mustReplace(manifest, '</manifest>', `    ${line}\n</manifest>`, needle);
+}
+// Android propose d'ouvrir TRANSFERT au branchement d'un support USB (et accorde alors l'accès à ce support).
+if (!manifest.includes('USB_DEVICE_ATTACHED')) {
+  manifest = mustReplace(
+    manifest,
+    '</activity>',
+    `    <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/usb_device_filter" />
+        </activity>`,
+    'usb intent-filter',
+  );
 }
 if (!manifest.includes('usesCleartextTraffic')) {
   manifest = mustReplace(manifest, '<application', '<application\n        android:usesCleartextTraffic="true"', 'cleartext');
@@ -50,7 +67,10 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
         registerPlugin(UsbStoragePlugin.class);
+        registerPlugin(UsbDirectPlugin.class);
+        registerPlugin(LanPlugin.class);
         super.onCreate(savedInstanceState);
+        WifiBinder.start(getApplicationContext());
     }
     @Override
     public void onStart() {
@@ -187,6 +207,25 @@ public class UsbStoragePlugin extends Plugin {
 }
 `);
 
+// --- Sources natives (pilotes USB FAT32/exFAT/NTFS, sonde réseau, liaison Wi-Fi) et ressources.
+const nativeDir = path.join(root, 'native');
+function copyJava(from, to) {
+  fs.mkdirSync(to, { recursive: true });
+  for (const file of fs.readdirSync(from)) {
+    if (file.endsWith('.java')) fs.copyFileSync(path.join(from, file), path.join(to, file));
+  }
+}
+copyJava(nativeDir, javaDir);
+copyJava(path.join(nativeDir, 'usbfs'), path.join(javaDir, 'usbfs'));
+const xmlDir = path.join(androidDir, 'app/src/main/res/xml');
+fs.mkdirSync(xmlDir, { recursive: true });
+fs.copyFileSync(path.join(nativeDir, 'res/usb_device_filter.xml'), path.join(xmlDir, 'usb_device_filter.xml'));
+
+// --- jsQR (lecture du QR code dans le lanceur) : fichier absent du dossier www, donc copié depuis node_modules.
+const jsqrSource = path.join(root, 'node_modules/jsqr/dist/jsQR.js');
+if (!fs.existsSync(jsqrSource)) throw new Error('jsQR introuvable : lancez « npm install » dans mobile/ avant ce script.');
+fs.copyFileSync(jsqrSource, path.join(root, 'www/jsQR.js'));
+
 // --- build.gradle : dépendance AndroidX DocumentFile pour le Storage Access Framework
 let gradleDeps = fs.readFileSync(gradlePath, 'utf8');
 if (!gradleDeps.includes('androidx.documentfile:documentfile')) {
@@ -196,8 +235,8 @@ if (!gradleDeps.includes('androidx.documentfile:documentfile')) {
 
 // --- build.gradle : version
 let gradle = fs.readFileSync(gradlePath, 'utf8');
-const versionName = process.env.APP_VERSION || '1.0.12';
-const versionCode = process.env.APP_VERSION_CODE || '12';
+const versionName = process.env.APP_VERSION || '1.0.13';
+const versionCode = process.env.APP_VERSION_CODE || '13';
 gradle = mustReplace(gradle, /versionCode \d+/, `versionCode ${versionCode}`, 'versionCode');
 gradle = mustReplace(gradle, /versionName "[^"]*"/, `versionName "${versionName}"`, 'versionName');
 fs.writeFileSync(gradlePath, gradle);

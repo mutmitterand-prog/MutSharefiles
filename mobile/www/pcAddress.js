@@ -33,11 +33,22 @@
     var port = url.port || ''; 
     var origin = url.protocol + '//' + url.hostname + (port ? ':' + port : '');
     var pair = url.searchParams.get('pair');
-    return { origin: origin, pair: pair, url: origin + '/' + (pair ? '?pair=' + encodeURIComponent(pair) : '') };
+    // Adresses de secours du même PC (autres cartes réseau), placées dans le QR code : alt=ip1,ip2
+    var alts = [];
+    var altParam = url.searchParams.get('alt');
+    if (altParam) {
+      altParam.split(',').forEach(function (h) {
+        h = h.trim();
+        if (!h || !/^[A-Za-z0-9.\-]+$/.test(h) || !isPrivateHost(h)) return;
+        var o = url.protocol + '//' + h + (port ? ':' + port : '');
+        if (o !== origin && alts.indexOf(o) === -1 && alts.length < 4) alts.push(o);
+      });
+    }
+    return { origin: origin, pair: pair, alts: alts, url: origin + '/' + (pair ? '?pair=' + encodeURIComponent(pair) : '') };
   }
 
-  /** Le port exact est fourni par le QR code ou l'adresse affichée sur le PC. */
-  function candidateOrigins(origin) { return [origin]; }
+  /** Le port exact est fourni par le QR code ; les adresses de secours ne changent que l'IP. */
+  function candidateOrigins(origin, alts) { return [origin].concat(alts || []); }
 
   var api = { parseServerAddress: parseServerAddress, isPrivateHost: isPrivateHost, candidateOrigins: candidateOrigins };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

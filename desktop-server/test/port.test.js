@@ -33,13 +33,17 @@ test('une autre application qui répond 200 sur /api/info n\'est pas prise pour 
   assert.equal(await ports.isTransfertServer(1), false); // rien n'écoute
 });
 
-test('le port précédent est réutilisé, puis 8787 est préféré avant un port éphémère', async () => {
+test('plage stable 8787-8799 avant un port éphémère ; le port précédent de la plage passe en premier', async () => {
   assert.equal(config.PORT_FORCED, false);
-  assert.deepEqual(await ports.candidatePorts(), [8787, 0]);
-  await ports.writePortFile(49152);
-  const list = await ports.candidatePorts();
-  assert.deepEqual(list, [49152, 8787, 0]);
-  assert.equal(new Set(list).size, list.length);
+  const range = Array.from({ length: config.PORT_FALLBACK_COUNT + 1 }, (_, i) => 8787 + i);
+  assert.deepEqual(await ports.candidatePorts(), [...range, 0]);
+  await ports.writePortFile(8790);
+  const first = await ports.candidatePorts();
+  assert.equal(first[0], 8790);
+  assert.equal(new Set(first).size, first.length);
+  await ports.writePortFile(49152); // ancien port éphémère : essayé après la plage
+  const second = await ports.candidatePorts();
+  assert.deepEqual(second, [...range, 49152, 0]);
   await ports.removePortFile();
   assert.equal(await ports.readSavedPort(), null);
 });

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Supports de stockage USB (classe 8, SCSI, Bulk-Only) -->
+    <usb-device class="8" subclass="6" protocol="80" />
+</resources>

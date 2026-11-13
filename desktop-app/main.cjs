@@ -1,7 +1,7 @@
 // Application Windows TRANSFERT : lance le serveur local avec le Node.js intégré à Electron,
 // affiche l'interface dans une fenêtre et ajoute une icône dans la zone de notification.
 const { app, BrowserWindow, Menu, Tray, dialog, nativeImage, shell } = require('electron');
-const { spawn } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
@@ -127,6 +127,84 @@ async function stopServer() {
   clearTimeout(timer);
 }
 
+// ---- Pare-feu Windows ---------------------------------------------------------------------
+// Sans règle d'entrée, Windows bloque silencieusement le téléphone (la fenêtre d'alerte ne s'affiche pas toujours
+// pour un processus caché). On ajoute donc une règle PAR PROGRAMME (réseaux privés et domaine) : elle couvre
+// tous les ports utilisés par TRANSFERT, même si le port change.
+const FIREWALL_RULE = 'TRANSFERT - Reseau prive';
+const firewallMarker = () => path.join(dataDir(), 'firewall.json');
+
+function runTool(file, args, options = {}) {
+  return new Promise((resolve) => {
+    execFile(file, args, { windowsHide: true, timeout: options.timeout || 15000, env: { ...process.env, ...(options.env || {}) } }, (error, stdout) => {
+      resolve({ ok: !error, stdout: String(stdout || '') });
+    });
+  });
+}
+
+async function firewallRuleOk() {
+  if (process.platform !== 'win32') return true;
+  const shown = await runTool('netsh', ['advfirewall', 'firewall', 'show', 'rule', `name=${FIREWALL_RULE}`]);
+  if (!shown.ok) return false;
+  try {
+    return JSON.parse(fs.readFileSync(firewallMarker(), 'utf8')).exe === process.execPath;
+  } catch {
+    return false;
+  }
+}
+
+async function installFirewallRule() {
+  const exe = process.execPath;
+  const bat = path.join(app.getPath('temp'), 'transfert-pare-feu.bat');
+  fs.writeFileSync(
+    bat,
+    [
+      '@echo off',
+      `netsh advfirewall firewall delete rule name="${FIREWALL_RULE}" >nul 2>nul`,
+      `netsh advfirewall firewall add rule name="${FIREWALL_RULE}" dir=in action=allow program="${exe}" protocol=TCP profile=private,domain enable=yes`,
+      'exit /b %errorlevel%',
+      '',
+    ].join('\r\n'),
+  );
+  // Une seule demande d'autorisation administrateur (UAC).
+  const script = '$p = Start-Process -FilePath $env:TRANSFERT_FW_BAT -Verb RunAs -Wait -PassThru -WindowStyle Hidden; exit $p.ExitCode';
+  const result = await runTool('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    timeout: 120000,
+    env: { TRANSFERT_FW_BAT: bat },
+  });
+  fs.rmSync(bat, { force: true });
+  if (!result.ok) return false;
+  fs.mkdirSync(dataDir(), { recursive: true });
+  fs.writeFileSync(firewallMarker(), JSON.stringify({ exe, at: new Date().toISOString() }));
+  return firewallRuleOk();
+}
+
+// force = true : demandé depuis le menu de l'icône (affiche toujours le résultat).
+async function ensureFirewall(force) {
+  if (process.platform !== 'win32') return;
+  if (!force && (await firewallRuleOk())) return;
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  const choice = await dialog.showMessageBox(parent, {
+    type: 'question',
+    buttons: ['Autoriser', 'Plus tard'],
+    defaultId: 0,
+    cancelId: 1,
+    title: 'TRANSFERT',
+    message: 'Autoriser TRANSFERT dans le pare-feu Windows ?',
+    detail: "Sans cette autorisation, le téléphone ne peut pas joindre le PC sur le Wi-Fi (« PC introuvable »). Windows va demander la confirmation d'un administrateur. L'accès est limité aux réseaux privés.",
+  });
+  if (choice.response !== 0) return;
+  const ok = await installFirewallRule();
+  await dialog.showMessageBox(parent, {
+    type: ok ? 'info' : 'warning',
+    title: 'TRANSFERT',
+    message: ok ? 'Pare-feu Windows configuré.' : "L'autorisation n'a pas été appliquée.",
+    detail: ok
+      ? 'Le téléphone peut maintenant se connecter. Si le QR code ne fonctionne toujours pas, vérifiez que le Wi-Fi est bien « Privé » dans Windows.'
+      : "Réessayez depuis l'icône TRANSFERT > « Autoriser dans le pare-feu Windows », et acceptez la fenêtre d'administrateur.",
+  });
+}
+
 function showWindow() {
   if (!mainWindow) {
     mainWindow = new BrowserWindow({
@@ -171,6 +249,7 @@ function updateTrayMenu() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Ouvrir TRANSFERT', click: showWindow },
+      { label: 'Autoriser dans le pare-feu Windows', click: () => ensureFirewall(true), visible: process.platform === 'win32' },
       { type: 'separator' },
       { label: running ? 'Serveur actif' : 'Serveur arrêté', enabled: false },
       {
@@ -203,6 +282,7 @@ if (!app.requestSingleInstanceLock()) {
       dialog.showErrorBox('TRANSFERT', "Le serveur ne répond pas. Consultez le fichier logs\\server.log dans le dossier de données de l'application.");
     }
     showWindow();
+    ensureFirewall(false).catch(() => {});
   });
 
   app.on('window-all-closed', () => { /* reste actif dans la zone de notification */ });
