@@ -44,6 +44,9 @@ async function main() {
     if (stopping) return;
     stopping = true;
     console.log('Arrêt du serveur TRANSFERT...');
+    // Ferme aussi les connexions persistantes (fenêtre, téléphone) : sinon l'arrêt traîne et le redémarrage échoue.
+    server.closeIdleConnections?.();
+    setTimeout(() => server.closeAllConnections?.(), 500).unref();
     server.close(() => {
       Promise.all([fs.rm(PID_FILE, { force: true }), removePortFile()]).finally(() => process.exit(0));
     });

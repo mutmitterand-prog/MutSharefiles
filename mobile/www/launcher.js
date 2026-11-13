@@ -326,8 +326,12 @@
         return;
       }
       var dev = scan.devices[0];
-      usbStatus('Support « ' + dev.name + ' » détecté. Acceptez la demande d’accès d’Android, puis patientez (un disque dur peut mettre quelques secondes à démarrer)…');
-      var opened = await plugin.open({ id: dev.id });
+      usbStatus('Support « ' + dev.name + ' » détecté.' + (dev.permission ? ' Accès déjà autorisé par Android. Initialisation (jusqu’à 40 s pour un disque dur)…' : ' Acceptez la demande d’accès d’Android…'));
+      var poll = setInterval(async function () {
+        try { var st = await plugin.status(); if (st && st.phase) usbStatus('Support « ' + dev.name + ' » : ' + st.phase); } catch (e) { /* ignoré */ }
+      }, 700);
+      var opened;
+      try { opened = await plugin.open({ id: dev.id }); } finally { clearInterval(poll); }
       usbMode = 'direct';
       if (!opened.volumes || !opened.volumes.length) {
         usbStatus('Support détecté (' + formatBytes(opened.capacity || 0) + ') mais aucun volume lisible. ' + (opened.notes || []).join(' '));

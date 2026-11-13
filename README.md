@@ -19,7 +19,7 @@ Transfert de fichiers entre un PC Windows et un téléphone Android, sur le rés
 - `docs/TESTS.md` : tests exécutés et tests restant à faire sur de vrais appareils.
 - `android/README.md` : préparation de l'intégration native (Capacitor, SAF).
 
-## Version Android 1.0.13 — USB OTG et réseau
+## Version Android 1.0.14 — USB OTG et réseau
 
 - Lecture directe des supports USB **NTFS, exFAT et FAT32** (MBR/GPT) avec pilotes intégrés, même si Android ne monte pas le volume ; copie en flux vers `Téléchargements/TRANSFERT-USB`.
 - Mode « via Android » (SAF) conservé pour l'écriture quand Android monte le volume.

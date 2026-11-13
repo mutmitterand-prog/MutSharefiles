@@ -43,8 +43,8 @@ jobs:
       - name: Appliquer le plugin USB OTG et les réglages Android
         working-directory: mobile
         env:
-          APP_VERSION: 1.0.13
-          APP_VERSION_CODE: 13
+          APP_VERSION: 1.0.14
+          APP_VERSION_CODE: 14
         run: node scripts/patch-android.mjs
 
       - name: Synchroniser Capacitor
@@ -58,7 +58,7 @@ jobs:
       - name: Publier l'APK en artefact
         uses: actions/upload-artifact@v4
         with:
-          name: TRANSFERT-Android-1.0.13-APK
+          name: TRANSFERT-Android-1.0.14-APK
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14

@@ -37,7 +37,7 @@ Onglet **Fichiers** : ouvrez un dossier partagé, naviguez, et touchez **Téléc
 
 Voir `docs/ANDROID.md` pour l'intégration Capacitor, le sélecteur Android SAF et les permissions de stockage.
 
-## USB OTG (APK Android, version 1.0.13)
+## USB OTG (APK Android, version 1.0.14)
 
 L'écran de lancement propose deux boutons :
 

@@ -55,13 +55,12 @@ function readPortFile() {
 
 // Cherche un serveur TRANSFERT déjà actif (autre instance ou terminal) et mémorise son port.
 async function adoptRunningServer() {
-  for (const candidate of new Set([readPortFile()].filter(Boolean))) {
-    if (await isTransfert(candidate)) {
-      port = candidate;
-      return true;
-    }
-  }
-  return false;
+  const candidates = [...new Set([readPortFile(), ...Array.from({ length: 13 }, (_, i) => 8787 + i)].filter(Boolean))];
+  const answers = await Promise.all(candidates.map(async (candidate) => ((await isTransfert(candidate)) ? candidate : null)));
+  const found = answers.find(Boolean);
+  if (!found) return false;
+  port = found;
+  return true;
 }
 
 // Attend que le serveur lancé par nous annonce son port, puis qu'il réponde.
@@ -112,7 +111,16 @@ async function startServer() {
   });
   const ready = await waitForServer();
   updateTrayMenu();
+  // La fenêtre peut afficher « Connexion perdue » d'un ancien serveur : on la recharge sur le serveur actif.
+  if (ready && mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(urlLocal());
   return ready;
+}
+
+// Garantit qu'un serveur TRANSFERT répond ; le relance sinon (processus arrêté à la main, planté ou figé).
+async function ensureServer() {
+  if (port && (await isTransfert(port))) return true;
+  if (serverProcess) await stopServer();
+  return startServer();
 }
 
 async function stopServer() {
@@ -242,13 +250,20 @@ function showWindow() {
   mainWindow.focus();
 }
 
+// Ouvre la fenêtre en s'assurant que le serveur tourne (clic sur l'icône, nouveau lancement de l'exe).
+async function openApp() {
+  const wasRunning = Boolean(port) && (await isTransfert(port));
+  if (!wasRunning) await ensureServer();
+  showWindow();
+}
+
 function updateTrayMenu() {
   if (!tray) return;
   const running = Boolean(serverProcess);
   tray.setToolTip(running ? 'TRANSFERT : serveur actif' : 'TRANSFERT : serveur arrêté');
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Ouvrir TRANSFERT', click: showWindow },
+      { label: 'Ouvrir TRANSFERT', click: openApp },
       { label: 'Autoriser dans le pare-feu Windows', click: () => ensureFirewall(true), visible: process.platform === 'win32' },
       { type: 'separator' },
       { label: running ? 'Serveur actif' : 'Serveur arrêté', enabled: false },
@@ -257,6 +272,14 @@ function updateTrayMenu() {
         click: async () => {
           if (serverProcess) await stopServer();
           else await startServer();
+          updateTrayMenu();
+        },
+      },
+      {
+        label: 'Redémarrer le serveur',
+        click: async () => {
+          if (serverProcess) await stopServer();
+          await startServer();
           updateTrayMenu();
         },
       },
@@ -269,11 +292,11 @@ function updateTrayMenu() {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', showWindow);
+  app.on('second-instance', openApp);
 
   app.whenReady().then(async () => {
     tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: 32, height: 32 }));
-    tray.on('click', showWindow);
+    tray.on('click', openApp);
     updateTrayMenu();
     const ready = await startServer();
     if (!ready && !serverProcess) {

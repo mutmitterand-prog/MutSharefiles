@@ -235,8 +235,8 @@ if (!gradleDeps.includes('androidx.documentfile:documentfile')) {
 
 // --- build.gradle : version
 let gradle = fs.readFileSync(gradlePath, 'utf8');
-const versionName = process.env.APP_VERSION || '1.0.13';
-const versionCode = process.env.APP_VERSION_CODE || '13';
+const versionName = process.env.APP_VERSION || '1.0.14';
+const versionCode = process.env.APP_VERSION_CODE || '14';
 gradle = mustReplace(gradle, /versionCode \d+/, `versionCode ${versionCode}`, 'versionCode');
 gradle = mustReplace(gradle, /versionName "[^"]*"/, `versionName "${versionName}"`, 'versionName');
 fs.writeFileSync(gradlePath, gradle);

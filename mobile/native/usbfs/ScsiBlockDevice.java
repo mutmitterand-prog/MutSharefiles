@@ -4,17 +4,35 @@ import java.io.IOException;
 
 /** Support de stockage USB « Bulk-Only » (clés, disques durs) lu par commandes SCSI READ. */
 public final class ScsiBlockDevice implements BlockDevice {
-    private static final int TIMEOUT_MS = 15000;
     private static final int CHUNK = 16384;
+    private static final int INIT_TIMEOUT_MS = 5000;
+    private static final int IO_TIMEOUT_MS = 15000;
+    private static final long READY_WAIT_MS = 40000;
+
+    /** Reçoit l'étape en cours (affichée à l'écran pendant le démarrage du disque). */
+    public interface StatusListener { void onStatus(String text); }
 
     private final BulkTransport t;
+    private final StatusListener listener;
+    private volatile int timeoutMs = INIT_TIMEOUT_MS;
     private int blockSize;
     private long blockCount;
     private int tag = 0x1000;
 
-    public ScsiBlockDevice(BulkTransport transport) throws IOException {
+    public ScsiBlockDevice(BulkTransport transport) throws IOException { this(transport, null); }
+
+    public ScsiBlockDevice(BulkTransport transport, StatusListener listener) throws IOException {
         this.t = transport;
+        this.listener = listener;
         init();
+    }
+
+    private void status(String text) { if (listener != null) listener.onStatus(text); }
+
+    private static String describeSense(int[] s) {
+        String[] keys = {"aucune erreur", "erreur récupérée", "pas prêt", "erreur du support", "erreur matérielle", "commande refusée", "changement d'état", "protégé"};
+        String key = s[0] < keys.length ? keys[s[0]] : "clé " + s[0];
+        return key + String.format(" (SCSI %02X/%02X/%02X)", s[0], s[1], s[2]);
     }
 
     @Override public int blockSize() { return blockSize; }
@@ -26,23 +44,31 @@ public final class ScsiBlockDevice implements BlockDevice {
     }
 
     private void init() throws IOException {
+        status("Initialisation du support USB…");
         t.resetRecovery();
-        IOException last = null;
+        long deadline = System.currentTimeMillis() + READY_WAIT_MS;
+        String diag = "aucune réponse du support";
         boolean ready = false;
-        for (int i = 0; i < 12 && !ready; i++) {
+        while (!ready && System.currentTimeMillis() < deadline) {
             try {
                 command(new byte[6], null, 0, 0, false);
                 ready = true;
             } catch (ScsiFailure e) {
-                last = e;
-                try { requestSense(); } catch (IOException ignored) { /* on réessaie */ }
-                sleep(400);
+                diag = "support pas prêt";
+                try { diag = describeSense(requestSense()); } catch (IOException ignored) { diag += " (détail indisponible)"; }
+                status("Démarrage du disque… " + diag);
+                sleep(1000);
             } catch (IOException e) {
-                last = e;
-                sleep(400);
+                diag = e.getMessage();
+                status("Le support ne répond pas encore… " + diag);
+                sleep(500);
             }
         }
-        if (!ready) throw new IOException("Le support ne répond pas (" + (last == null ? "inconnu" : last.getMessage()) + ")");
+        if (!ready) {
+            throw new IOException("le support ne répond pas (" + diag + "). Un disque dur ou SSD a souvent besoin de sa propre alimentation (boîtier alimenté ou hub USB alimenté) ; vérifiez aussi le câble puis rebranchez");
+        }
+        status("Lecture de la capacité du support…");
+        timeoutMs = IO_TIMEOUT_MS;
 
         byte[] cap = new byte[8];
         command(new byte[]{0x25, 0, 0, 0, 0, 0, 0, 0, 0, 0}, cap, 0, 8, true);
@@ -94,7 +120,7 @@ public final class ScsiBlockDevice implements BlockDevice {
         cbw[12] = (byte) (in ? 0x80 : 0x00);
         cbw[14] = (byte) cdb.length;
         System.arraycopy(cdb, 0, cbw, 15, cdb.length);
-        if (t.bulkOut(cbw, 0, cbw.length, TIMEOUT_MS) != cbw.length) {
+        if (t.bulkOut(cbw, 0, cbw.length, timeoutMs) != cbw.length) {
             recover();
             throw new IOException("Envoi de la commande USB impossible");
         }
@@ -104,7 +130,7 @@ public final class ScsiBlockDevice implements BlockDevice {
             int packet = Math.max(64, t.maxPacket(in));
             while (transferred < len) {
                 int chunk = Math.min(CHUNK, len - transferred);
-                int r = in ? t.bulkIn(data, off + transferred, chunk, TIMEOUT_MS) : t.bulkOut(data, off + transferred, chunk, TIMEOUT_MS);
+                int r = in ? t.bulkIn(data, off + transferred, chunk, timeoutMs) : t.bulkOut(data, off + transferred, chunk, timeoutMs);
                 if (r < 0) { stalled = true; break; }
                 if (r == 0) break;
                 transferred += r;
@@ -113,10 +139,10 @@ public final class ScsiBlockDevice implements BlockDevice {
             if (stalled) t.clearHalt(in);
         }
         byte[] csw = new byte[13];
-        int r = t.bulkIn(csw, 0, 13, TIMEOUT_MS);
+        int r = t.bulkIn(csw, 0, 13, timeoutMs);
         if (r != 13) {
             t.clearHalt(true);
-            r = t.bulkIn(csw, 0, 13, TIMEOUT_MS);
+            r = t.bulkIn(csw, 0, 13, timeoutMs);
         }
         if (r != 13 || Le.u32(csw, 0) != 0x53425355L) { recover(); throw new IOException("Réponse USB invalide"); }
         if (Le.u32(csw, 4) != myTag) { recover(); throw new IOException("Désynchronisation USB"); }

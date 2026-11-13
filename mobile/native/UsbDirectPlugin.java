@@ -66,6 +66,7 @@ public class UsbDirectPlugin extends Plugin {
     private volatile long copyDone;
     private volatile long copyTotal;
     private volatile String copyName = "";
+    private volatile String phase = "";
 
     // ---- détection --------------------------------------------------------------------------
 
@@ -146,6 +147,7 @@ public class UsbDirectPlugin extends Plugin {
         new Thread(new Runnable() {
             @Override public void run() {
                 try {
+                    phase = "Ouverture du support…";
                     closeInternal();
                     UsbInterface iface = massStorageInterface(dev);
                     UsbDeviceConnection c = manager().openDevice(dev);
@@ -162,7 +164,11 @@ public class UsbDirectPlugin extends Plugin {
                         if (ep.getDirection() == UsbConstants.USB_DIR_IN) in = ep; else out = ep;
                     }
                     if (in == null || out == null) throw new IOException("Le support n'expose pas les canaux de transfert attendus.");
-                    ScsiBlockDevice block = new ScsiBlockDevice(new AndroidTransport(c, iface, in, out));
+                    phase = "Support ouvert, démarrage…";
+                    ScsiBlockDevice block = new ScsiBlockDevice(new AndroidTransport(c, iface, in, out), new ScsiBlockDevice.StatusListener() {
+                        @Override public void onStatus(String text) { phase = text; }
+                    });
+                    phase = "Analyse des partitions…";
                     List<String> notes = new ArrayList<>();
                     List<VolumeScanner.Volume> found = VolumeScanner.scan(block, notes);
                     JSArray vols = new JSArray();
@@ -206,6 +212,14 @@ public class UsbDirectPlugin extends Plugin {
         claimed = null;
         volumes.clear();
         nodes.clear();
+    }
+
+    /** Étape en cours pendant l'ouverture (pour l'afficher à l'écran). */
+    @PluginMethod
+    public void status(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("phase", phase);
+        call.resolve(r);
     }
 
     @PluginMethod

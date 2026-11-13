@@ -49,10 +49,10 @@ export async function candidatePorts() {
 
 /** Retourne le port d'un serveur TRANSFERT déjà lancé avec ces données, sinon null. */
 export async function findRunningInstance() {
-  for (const port of await candidatePorts()) {
-    if (port > 0 && await isTransfertServer(port)) return port;
-  }
-  return null;
+  // Sondage en parallèle : un port qui n'accepte pas la connexion ne ralentit plus le démarrage.
+  const ports = (await candidatePorts()).filter((port) => port > 0);
+  const answers = await Promise.all(ports.map(async (port) => ((await isTransfertServer(port, 800)) ? port : null)));
+  return answers.find(Boolean) ?? null;
 }
 
 export const writePortFile = (port) => fs.writeFile(PORT_FILE, String(port), 'utf8');
